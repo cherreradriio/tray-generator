@@ -797,9 +797,15 @@
     const inner=profile(-innerGap,-innerGap,x1+innerGap,y1+innerGap,cr(cornerSize,innerGap,cornerStyle),cornerStyle);
     const outerBottom=outer.map(p=>[p,z]),outerTop=outer.map(p=>[p,z+1.4]);
     const innerBottom=inner.map(p=>[p,z]),innerTop=inner.map(p=>[p,z+1.4]);
-    ring(out,outer,inner,z,[0,0,-1]);ring(out,outer,inner,z+1.4,[0,0,1]);
-    connect(out,outerBottom,outerTop,i=>{
+    // A thin web sunk into the lid edge ties the rim to the lid; it stays below the lid top so stacked trays still sit flat.
+    const webIn=.4,webZ=z-.6,web=profile(webIn,webIn,x1-webIn,y1-webIn,cr(cornerSize,-webIn,cornerStyle),cornerStyle);
+    const webLow=web.map(p=>[p,webZ]),webHigh=web.map(p=>[p,z]),outerLow=outer.map(p=>[p,webZ]);
+    ring(out,outer,web,webZ,[0,0,-1]);ring(out,inner,web,z,[0,0,1]);ring(out,outer,inner,z+1.4,[0,0,1]);
+    connect(out,outerLow,outerTop,i=>{
       const a=outer[i],b=outer[(i+1)%outer.length];return [b[1]-a[1],a[0]-b[0],0];
+    });
+    connect(out,webLow,webHigh,i=>{
+      const a=web[i],b=web[(i+1)%web.length];return [a[1]-b[1],b[0]-a[0],0];
     });
     connect(out,innerBottom,innerTop,i=>{
       const a=inner[i],b=inner[(i+1)%inner.length];return [a[1]-b[1],b[0]-a[0],0];
@@ -902,6 +908,14 @@
       connect(m,at(T0,g.z1),at(T2,g.z2),slope);
       connect(m,at(T2,g.z2),at(T2,zp0),edge(T2));
       ring(m,O,T2,zp0,[0,0,-1]);
+      const xe=g.xc-c,filler=[];
+      for(let i=0;i<O.length;i++) {
+        const a=O[i],q=O[(i+1)%O.length];
+        if(a[0]<xe) filler.push(a);
+        if((a[0]<xe)!==(q[0]<xe)) filler.push([xe,a[1]+(q[1]-a[1])*(xe-a[0])/(q[0]-a[0])]);
+      }
+      // Fills the lowered entrance end so the lid sits flush there; it overlaps the plate so slicers union it.
+      if(filler.length>=3&&zp0-zb>.1) extrudeProfile(m,filler,zb,zp0+Math.min(.2,lt/2));
       connect(m,at(O,zp0),at(O,zt),edge(O));
       if(pockets.length) surfaceWithPockets(m,O,zt,[0,0,1],pockets,magnetDepth);
       else topSurface(m,O,zt,s);
